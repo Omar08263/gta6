@@ -1,124 +1,198 @@
-// The game's rules and state, with no drawing and no browser in it: the player's paddle, the
-// pool of falling blocks and coins, spawning, collisions, score, lives and level. step() advances
-// one fixed step and returns what happened as bit flags, so the caller can react without the
-// world knowing about screens or sound. Nothing here allocates after createWorld returns.
-import { BLOCK, COIN, FIELD, LEVEL, LIVES, PLAYER, POOL_SIZE } from './config.js';
+// Solmar Bay: a seeded procedural grid city — roads, towers, palms, beach and marina.
+import * as THREE from 'three';
+import { BLOCK, CITY_BLOCKS, CITY_SIZE, ROAD } from './config.js';
 
-export const KIND_BLOCK = 0;
-export const KIND_COIN = 1;
+const PITCH = BLOCK + ROAD;
+const HALF = CITY_SIZE / 2;
 
-export const EVENT_HIT = 1;
-export const EVENT_COIN = 2;
-export const EVENT_OVER = 4;
-
-function overlaps(a, b) {
-  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+function windowTexture(random) {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#8a8f98'; g.fillRect(0, 0, 64, 128);
+  for (let y = 6; y < 122; y += 12) {
+    for (let x = 6; x < 58; x += 12) {
+      const lit = random.chance(0.42);
+      g.fillStyle = lit ? (random.chance(0.6) ? '#ffd98a' : '#9fd8ff') : '#2c3440';
+      g.fillRect(x, y, 8, 7);
+    }
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
-export function createWorld(random) {
-  const player = { x: 0, y: FIELD.groundY - PLAYER.height, width: PLAYER.width, height: PLAYER.height, invulnerable: 0 };
-  const items = [];
-  for (let index = 0; index < POOL_SIZE; index += 1) {
-    items.push({ active: false, kind: KIND_BLOCK, x: 0, y: 0, width: 0, height: 0, speed: 0 });
+export function createWorld(seedRandom) {
+  const random = seedRandom;
+  const group = new THREE.Group();
+  const buildings = [];
+  const roadLines = [];
+  for (let k = 0; k <= CITY_BLOCKS; k += 1) roadLines.push(-HALF + k * PITCH);
+
+  // Ground: sidewalk grey base, dark road strips, sand beach and water to the south.
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(CITY_SIZE + 260, CITY_SIZE + 260),
+    new THREE.MeshLambertMaterial({ color: 0x9a938a }),
+  );
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.05; group.add(ground);
+
+  const roadMat = new THREE.MeshLambertMaterial({ color: 0x33363d });
+  for (const line of roadLines) {
+    const v = new THREE.Mesh(new THREE.PlaneGeometry(ROAD, CITY_SIZE), roadMat);
+    v.rotation.x = -Math.PI / 2; v.position.set(line, 0.01, 0); group.add(v);
+    const h = new THREE.Mesh(new THREE.PlaneGeometry(CITY_SIZE, ROAD), roadMat);
+    h.rotation.x = -Math.PI / 2; h.position.set(0, 0.01, line); group.add(h);
   }
-  const state = { player, items, score: 0, lives: LIVES, level: 1, elapsed: 0, blockTimer: 0, coinTimer: 0 };
-
-  function reset() {
-    player.x = (FIELD.width - player.width) / 2;
-    player.invulnerable = 0;
-    for (const item of items) item.active = false;
-    state.score = 0;
-    state.lives = LIVES;
-    state.level = 1;
-    state.elapsed = 0;
-    state.blockTimer = BLOCK.interval;
-    state.coinTimer = COIN.interval;
-  }
-
-  function freeItem() {
-    for (let index = 0; index < items.length; index += 1) if (!items[index].active) return items[index];
-    return null;
-  }
-
-  function spawnBlock() {
-    const item = freeItem();
-    if (item === null) return;
-    item.active = true;
-    item.kind = KIND_BLOCK;
-    item.width = BLOCK.minWidth + random() * (BLOCK.maxWidth - BLOCK.minWidth);
-    item.height = BLOCK.height;
-    item.x = random() * (FIELD.width - item.width);
-    item.y = -item.height;
-    item.speed = BLOCK.speed + BLOCK.speedPerLevel * (state.level - 1) + random() * BLOCK.speedJitter;
-  }
-
-  function spawnCoin() {
-    const item = freeItem();
-    if (item === null) return;
-    item.active = true;
-    item.kind = KIND_COIN;
-    item.width = COIN.size;
-    item.height = COIN.size;
-    item.x = random() * (FIELD.width - item.width);
-    item.y = -item.height;
-    item.speed = COIN.speed + COIN.speedPerLevel * (state.level - 1);
-  }
-
-  function blockInterval() {
-    return Math.max(BLOCK.minInterval, BLOCK.interval * BLOCK.intervalScale ** (state.level - 1));
-  }
-
-  /**
-   * One fixed step. `direction` is -1, 0 or 1 (left, still, right). With `harmless` set (the title
-   * screen's backdrop) things fall but nothing touches the player and nothing scores.
-   */
-  function step(dt, direction, harmless) {
-    let events = 0;
-    state.elapsed += dt;
-    state.level = Math.min(LEVEL.max, 1 + Math.floor(state.elapsed / LEVEL.seconds));
-
-    player.x = Math.min(FIELD.width - player.width, Math.max(0, player.x + direction * PLAYER.speed * dt));
-    if (player.invulnerable > 0) player.invulnerable = Math.max(0, player.invulnerable - dt);
-
-    state.blockTimer -= dt;
-    if (state.blockTimer <= 0) {
-      spawnBlock();
-      state.blockTimer += blockInterval();
+  // Lane dashes down the middle of every road.
+  const dashGeo = new THREE.BoxGeometry(0.5, 0.06, 3);
+  const dashMat = new THREE.MeshBasicMaterial({ color: 0xd8c95a });
+  const dashCount = roadLines.length * Math.floor(CITY_SIZE / 12) * 2;
+  const dashes = new THREE.InstancedMesh(dashGeo, dashMat, dashCount);
+  const m4 = new THREE.Matrix4();
+  let di = 0;
+  for (const line of roadLines) {
+    for (let s = -HALF + 6; s < HALF; s += 12) {
+      m4.makeTranslation(line, 0.05, s); dashes.setMatrixAt(di, m4); di += 1;
+      m4.makeTranslation(s, 0.05, line); dashes.setMatrixAt(di, m4); di += 1;
     }
-    state.coinTimer -= dt;
-    if (state.coinTimer <= 0) {
-      spawnCoin();
-      state.coinTimer += COIN.interval + random() * COIN.intervalJitter;
-    }
+  }
+  dashes.count = di; group.add(dashes);
 
-    for (let index = 0; index < items.length; index += 1) {
-      const item = items[index];
-      if (!item.active) continue;
-      item.y += item.speed * dt;
-      if (item.y > FIELD.groundY) {
-        item.active = false;
-        if (item.kind === KIND_BLOCK && !harmless) state.score += BLOCK.dodgePoints;
-        continue;
-      }
-      if (harmless || !overlaps(item, player)) continue;
-      if (item.kind === KIND_COIN) {
-        item.active = false;
-        state.score += COIN.points;
-        events |= EVENT_COIN;
-      } else if (player.invulnerable === 0) {
-        item.active = false;
-        state.lives -= 1;
-        player.invulnerable = PLAYER.invulnerable;
-        events |= EVENT_HIT;
-        if (state.lives === 0) {
-          events |= EVENT_OVER;
-          break;
-        }
+  // Beach sand + water along the south edge (z positive).
+  const sand = new THREE.Mesh(new THREE.PlaneGeometry(CITY_SIZE + 260, 90), new THREE.MeshLambertMaterial({ color: 0xe8d49a }));
+  sand.rotation.x = -Math.PI / 2; sand.position.set(0, 0.0, HALF + 45); group.add(sand);
+  const waterMat = new THREE.MeshLambertMaterial({ color: 0x2e7fb8, transparent: true, opacity: 0.92 });
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(CITY_SIZE + 400, 300), waterMat);
+  water.rotation.x = -Math.PI / 2; water.position.set(0, -0.4, HALF + 240); group.add(water);
+
+  // Buildings: one instanced box per tower, tinted per instance, window texture shared.
+  const spots = [];
+  for (let i = 0; i < CITY_BLOCKS; i += 1) {
+    for (let j = 0; j < CITY_BLOCKS; j += 1) {
+      const cx = -HALF + i * PITCH + PITCH / 2;
+      const cz = -HALF + j * PITCH + PITCH / 2;
+      const downtown = Math.hypot(cx, cz) < 150;
+      const n = downtown ? 1 : random.chance(0.5) ? 4 : 2;
+      for (let b = 0; b < n; b += 1) {
+        const ox = n === 1 ? 0 : (b % 2 === 0 ? -11 : 11);
+        const oz = n === 1 ? 0 : (b < 2 ? -11 : 11);
+        const w = n === 1 ? 34 : 17;
+        const h = downtown ? random.range(28, 78) : random.range(8, 30);
+        spots.push({ x: cx + ox, z: cz + oz, w, d: w, h });
       }
     }
-    return events;
+  }
+  const bGeo = new THREE.BoxGeometry(1, 1, 1);
+  const bMat = new THREE.MeshLambertMaterial({ map: windowTexture(random) });
+  const inst = new THREE.InstancedMesh(bGeo, bMat, spots.length);
+  const palette = [0xd8cfc0, 0xc0b8a8, 0xa8b8c8, 0xd8a890, 0xb8c8a8, 0xe8e0d0, 0x98a8b8];
+  const col = new THREE.Color();
+  spots.forEach((s, idx) => {
+    m4.makeScale(s.w, s.h, s.d);
+    m4.setPosition(s.x, s.h / 2, s.z);
+    inst.setMatrixAt(idx, m4);
+    inst.setColorAt(idx, col.setHex(random.pick(palette)));
+    buildings.push({ x: s.x, z: s.z, hx: s.w / 2, hz: s.d / 2, h: s.h });
+  });
+  group.add(inst);
+
+  // Palm trees along sidewalks.
+  const palmCount = 130;
+  const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.4, 7, 6), new THREE.MeshLambertMaterial({ color: 0x8a6a48 }), palmCount);
+  const crown = new THREE.InstancedMesh(new THREE.ConeGeometry(3.2, 3.4, 7), new THREE.MeshLambertMaterial({ color: 0x3f8a4a }), palmCount);
+  for (let p = 0; p < palmCount; p += 1) {
+    const line = random.pick(roadLines);
+    const along = random.range(-HALF + 10, HALF - 10);
+    const side = random.chance(0.5) ? 1 : -1;
+    const px = random.chance(0.5) ? line + side * (ROAD / 2 + 2.5) : along;
+    const pz = px === line + side * (ROAD / 2 + 2.5) ? along : line + side * (ROAD / 2 + 2.5);
+    m4.makeTranslation(px, 3.5, pz); trunk.setMatrixAt(p, m4);
+    m4.makeTranslation(px, 8.2, pz); crown.setMatrixAt(p, m4);
+  }
+  group.add(trunk); group.add(crown);
+
+  // Streetlights at intersections.
+  const lampCount = roadLines.length * roadLines.length;
+  const poles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.12, 0.16, 6, 5), new THREE.MeshLambertMaterial({ color: 0x44484e }), lampCount);
+  const bulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.45, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffe9a8 }), lampCount);
+  let li = 0;
+  for (const lx of roadLines) {
+    for (const lz of roadLines) {
+      m4.makeTranslation(lx + ROAD / 2 + 1, 3, lz + ROAD / 2 + 1); poles.setMatrixAt(li, m4);
+      m4.makeTranslation(lx + ROAD / 2 + 1, 6.1, lz + ROAD / 2 + 1); bulbs.setMatrixAt(li, m4);
+      li += 1;
+    }
+  }
+  group.add(poles); group.add(bulbs);
+
+  // Marina: docks and boats on the east edge (x positive), plus a spray shop and hospital.
+  const dockMat = new THREE.MeshLambertMaterial({ color: 0x7a5a38 });
+  for (let d = 0; d < 4; d += 1) {
+    const dock = new THREE.Mesh(new THREE.BoxGeometry(46, 1, 5), dockMat);
+    dock.position.set(HALF + 26, 0.4, -140 + d * 80); group.add(dock);
+  }
+  const boatColors = [0xe8e8e8, 0x4a7ab8, 0xd84a4a, 0xe8c84a];
+  for (let b = 0; b < 10; b += 1) {
+    const boat = new THREE.Group();
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(9, 1.6, 3.4), new THREE.MeshLambertMaterial({ color: random.pick(boatColors) }));
+    hull.position.y = 0.6; boat.add(hull);
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(4, 2, 2.6), new THREE.MeshLambertMaterial({ color: 0xf0f0e8 }));
+    cabin.position.set(-0.5, 2.2, 0); boat.add(cabin);
+    boat.position.set(HALF + 14 + random.range(0, 30), 0, -160 + b * 34 + random.range(-6, 6));
+    boat.rotation.y = random.range(-0.15, 0.15);
+    group.add(boat);
+  }
+  // Spray shop (repaint clears wanted) and hospital (respawn point), as glowing sign boxes.
+  function landmark(x, z, color, label) {
+    const box = new THREE.Mesh(new THREE.BoxGeometry(14, 6, 10), new THREE.MeshLambertMaterial({ color: 0x888888 }));
+    box.position.set(x, 3, z); group.add(box);
+    const sign = new THREE.Mesh(new THREE.BoxGeometry(14.4, 1.6, 10.4), new THREE.MeshBasicMaterial({ color }));
+    sign.position.set(x, 6.6, z); group.add(sign);
+    return { x, z, label };
+  }
+  const sprayShop = landmark(-284, -290, 0x3ec8ff, 'Spray Shop');
+  const hospital = landmark(284, 290, 0xff5a5a, 'Solmar General');
+
+  const playerSpawn = { x: -290, z: 0 };
+
+  function nearestRoadCoord(v) {
+    let best = roadLines[0];
+    for (const l of roadLines) if (Math.abs(l - v) < Math.abs(best - v)) best = l;
+    return best;
+  }
+  function isOnRoad(x, z) {
+    return Math.abs(x - nearestRoadCoord(x)) < ROAD / 2 + 1 || Math.abs(z - nearestRoadCoord(z)) < ROAD / 2 + 1;
+  }
+  function randomRoadPoint() {
+    const line = random.pick(roadLines);
+    const along = random.range(-HALF + 20, HALF - 20);
+    return random.chance(0.5) ? { x: line, z: along } : { x: along, z: line };
+  }
+  function randomSidewalkPoint() {
+    const line = random.pick(roadLines);
+    const along = random.range(-HALF + 20, HALF - 20);
+    const off = (random.chance(0.5) ? 1 : -1) * (ROAD / 2 + 1);
+    return random.chance(0.5) ? { x: line + off, z: along } : { x: along, z: line + off };
+  }
+  function collides(x, z, r) {
+    if (Math.abs(x) > HALF + 30 || Math.abs(z) > HALF + 30) return true;
+    for (const b of buildings) {
+      if (Math.abs(x - b.x) < b.hx + r && Math.abs(z - b.z) < b.hz + r) return true;
+    }
+    return false;
+  }
+  function districtAt(x, z) {
+    if (x > HALF - 90) return 'Marina District';
+    if (z > HALF - 90) return 'Beachfront';
+    if (Math.hypot(x, z) < 150) return 'Downtown Solmar Bay';
+    if (x < -HALF + 120) return 'West End';
+    if (z < -HALF + 120) return 'Northside';
+    return 'Solmar Bay';
   }
 
-  reset();
-  return { state, reset, step };
+  return {
+    group, buildings, roadLines, sprayShop, hospital, playerSpawn, water,
+    nearestRoadCoord, isOnRoad, randomRoadPoint, randomSidewalkPoint, collides, districtAt,
+    update(dt, t) { water.position.y = -0.4 + Math.sin(t * 0.7) * 0.12; },
+  };
 }

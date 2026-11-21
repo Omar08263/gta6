@@ -3,17 +3,78 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
+<link rel="icon" href="data:,">
+<title>Sunset Streets — Solmar Bay</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1a1210; font-family: Arial, Helvetica, sans-serif; }
   #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
   #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .panel { position: fixed; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.8); z-index: 5; user-select: none; pointer-events: none; }
+  #topLeft { top: 12px; left: 14px; }
+  #stars { font-size: 26px; letter-spacing: 2px; color: #ffd23e; }
+  #stars .off { color: rgba(255,255,255,.28); }
+  #cash { font-size: 22px; font-weight: bold; color: #7dff9a; margin-top: 2px; }
+  #healthWrap { width: 190px; height: 12px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.5); border-radius: 6px; margin-top: 6px; overflow: hidden; }
+  #healthBar { height: 100%; width: 100%; background: linear-gradient(90deg,#ff5a3c,#ffb03c); }
+  #clock { top: 12px; right: 16px; font-size: 20px; font-weight: bold; text-align: right; }
+  #district { font-size: 13px; color: #ffd9a0; }
+  #objective { top: 12px; left: 50%; transform: translateX(-50%); text-align: center; max-width: 560px; }
+  #objectiveTitle { font-size: 17px; font-weight: bold; color: #ffe9b0; }
+  #objectiveText { font-size: 15px; margin-top: 2px; }
+  #minimapWrap { left: 14px; bottom: 14px; }
+  #minimap { border: 2px solid rgba(255,255,255,.65); border-radius: 50%; background: rgba(10,16,24,.85); box-shadow: 0 2px 10px rgba(0,0,0,.5); }
+  #speed { right: 18px; bottom: 16px; text-align: right; }
+  #speedNum { font-size: 44px; font-weight: bold; line-height: 1; }
+  #speedUnit { font-size: 14px; color: #ffd9a0; }
+  #carName { font-size: 14px; color: #ffe9b0; margin-top: 2px; }
+  #hint { bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 13px; color: rgba(255,255,255,.85); background: rgba(0,0,0,.4); padding: 4px 10px; border-radius: 10px; }
+  #banner { top: 34%; left: 50%; transform: translate(-50%,-50%); text-align: center; font-size: 40px; font-weight: bold; color: #ffe9b0; display: none; }
+  #banner small { display: block; font-size: 18px; color: #fff; margin-top: 6px; }
+  .overlay { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center; background: linear-gradient(180deg, rgba(30,10,40,.55), rgba(255,110,40,.35)); }
+  .overlay h1 { font-size: 64px; margin: 0; letter-spacing: 3px; color: #ffd23e; text-shadow: 0 3px 18px rgba(0,0,0,.7); }
+  .overlay h2 { font-size: 22px; margin: 6px 0 0; color: #ffe9b0; font-weight: normal; }
+  .overlay p { font-size: 16px; max-width: 560px; line-height: 1.5; }
+  .overlay button { pointer-events: auto; cursor: pointer; font-size: 20px; padding: 12px 34px; border: none; border-radius: 8px; background: #ff7a2e; color: #fff; font-weight: bold; margin-top: 10px; }
+  .overlay button:hover { background: #ff9a4e; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
+<canvas id="game" aria-label="Sunset Streets: explore Solmar Bay on foot and by car"></canvas>
 <p id="status" role="status" aria-live="polite"></p>
+<div id="hud">
+  <div class="panel" id="topLeft">
+    <div id="stars"></div>
+    <div id="cash">$0</div>
+    <div id="healthWrap"><div id="healthBar"></div></div>
+  </div>
+  <div class="panel" id="clock"><div id="clockTime">18:24</div><div id="district">Downtown Solmar Bay</div></div>
+  <div class="panel" id="objective"><div id="objectiveTitle"></div><div id="objectiveText"></div></div>
+  <div class="panel" id="minimapWrap"><canvas id="minimap" width="180" height="180"></canvas></div>
+  <div class="panel" id="speed"><div id="speedNum">0</div><div id="speedUnit">mph</div><div id="carName"></div></div>
+  <div class="panel" id="hint">WASD move &nbsp;·&nbsp; Mouse drag camera &nbsp;·&nbsp; E enter car &nbsp;·&nbsp; M next job &nbsp;·&nbsp; R restart job &nbsp;·&nbsp; Space handbrake &nbsp;·&nbsp; Q punch &nbsp;·&nbsp; P pause</div>
+  <div class="panel" id="banner"></div>
+</div>
+<div class="overlay" id="title">
+  <h1>SUNSET STREETS</h1>
+  <h2>Solmar Bay &nbsp;·&nbsp; a newcomer driver climbs from courier runs to the marina heist</h2>
+  <p>You are Rae &ldquo;Rook&rdquo; Marlow. Steal cars, outrun the Solmar Bay patrol, run five jobs for the crew, and pull off the marina heist. Watch the wanted stars — the patrol never forgets a stolen car for long.</p>
+  <button id="playBtn">Start driving</button>
+  <p id="continueLine" class="hidden">Saved progress found — your cash and jobs carry over.</p>
+</div>
+<div class="overlay hidden" id="pause">
+  <h1>PAUSED</h1>
+  <p>Solmar Bay waits for no one. Press P or click Resume to keep driving.</p>
+  <button id="resumeBtn">Resume</button>
+</div>
+<div class="overlay hidden" id="over">
+  <h1>BUSTED OUT</h1>
+  <p id="overText">Rook woke up at the Solmar General hospital. The crew kept your cash — the city kept its secrets.</p>
+  <button id="retryBtn">Back to the streets</button>
+</div>
+<script type="importmap">
+{"imports": {"three": "./vendor/three.module.min.js"}}
+</script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>
