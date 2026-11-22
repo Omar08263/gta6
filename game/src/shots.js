@@ -1,6 +1,22 @@
 // Deterministic ?shot= scenes: chase | drive | mission | heist. Each stages a late-game
 // unlocked state with a fixed seed, freezes traffic, peds and police, and runs a fixed number
 // of physics steps so the same seed always gives the same frame.
+//
+// Resubmit reframing (campaign "90%", pre-build review amendments applied):
+// - drive moved to the southern beachfront road (z = 348): the car runs east with the
+//   beach and water on its right (south) and the downtown towers on its left (north),
+//   a composition unlike chase/heist instead of the same street as chase.
+// - heist moved onto the marina road itself (x = 348, heading south): the Job 5 beacon,
+//   the docks and the boats are ahead of the car, and the eastern marina water strip
+//   (world.js) puts real water under the boats — reframing alone could not show water
+//   there, because the only water was 300 units south of the dry marina.
+// - mission: Rook is now inside a car before Job 1 starts, so the "Drive the package"
+//   objective matches the frame (the Job 2 alternative was dropped: its beacon sits
+//   at (0, 290) on the beach, a whole second framing, not a swap).
+// - chase (the cover) is untouched: same position, heading, cops and street life.
+// - Every moved shot carries its stageStreetLife coordinates with it, so traffic and
+//   pedestrians stay in frame; the cops are already anchored relative to the player.
+// - Step 5 of the plan (facade/shadow variety) was dropped outright as first-to-drop.
 import { STEP } from './config.js';
 import { placeCarAt } from './driving.js';
 import { enterCar } from './player.js';
@@ -38,6 +54,8 @@ function stageCops(game, wanted, offsets) {
 }
 
 // Put a few traffic cars and pedestrians where the camera can see them.
+// Coordinates are per-shot and move with the shot: a staged car or ped left at
+// the old position would sit outside the new frame entirely.
 function stageStreetLife(game, carSpots, pedSpots) {
   game.traffic.cars.slice(0, carSpots.length).forEach((car, i) => {
     car.pos.set(carSpots[i][0], 0, carSpots[i][1]);
@@ -61,27 +79,33 @@ export function stageShot(name, game) {
   game.time = 84 * 60; // 18:24, golden hour.
 
   if (name === 'drive') {
-    stageCar(game, 0, 120, 0, 26);
+    // Beachfront cruise: east along the southernmost road (z = 348), water and
+    // sand on the right, towers on the left. Traffic ahead in both lanes,
+    // pedestrians on the north sidewalk and one on the sand.
+    stageCar(game, -120, 348, Math.PI / 2, 26);
     game.missions.start(1, game.traffic);
     game.police.setWanted(0);
     game.player.health = 100;
-    stageStreetLife(game, [[-4.5, 160, Math.PI], [-4.5, 185, Math.PI]], [[8, 165, 0], [-8, 178, Math.PI], [8, 190, 0]]);
+    stageStreetLife(game, [[-70, 343.5, Math.PI / 2], [-35, 352.5, -Math.PI / 2]], [[-90, 340, 0], [-55, 357, Math.PI], [-20, 340, 0]]);
   } else if (name === 'mission') {
-    // On foot near the Job 1 beacon, downtown, peds strolling past.
-    game.player.pos.set(0, 0, 74);
-    game.player.heading = Math.PI;
-    game.renderer.camState.yaw = Math.PI; // camera behind Rook, beacon ahead in frame
+    // Job 1 from inside the car: Rook sits in the Comet at (0, 90) facing north,
+    // the orange beacon at (0, 58) ahead in frame — the "Drive the package"
+    // objective now matches a driver, not a pedestrian standing still.
+    stageCar(game, 0, 90, Math.PI, 0);
     game.missions.start(0, game.traffic);
     game.police.setWanted(0);
     game.cash.value = 400;
     stageStreetLife(game, [[-4.5, 40, Math.PI], [-4.5, 20, Math.PI]], [[8, 62, 0], [-8, 50, Math.PI], [8, 40, 0]]);
   } else if (name === 'heist') {
-    stageCar(game, 300, 58, Math.PI / 2, 34);
+    // Marina getaway, on the marina road itself: car at (348, -20) heading south,
+    // Job 5 beacon at (340, 58) ahead, docks at z = 20 and 100 and boats at
+    // z = 44..146 ahead on the left (east), all over the marina water strip.
+    stageCar(game, 348, -20, 0, 34);
     game.missions.start(4, game.traffic);
     game.cash.value = 6400;
     game.player.health = 74;
     stageCops(game, 4, [[-6, 8, 40], [6, 10, 38], [-5, -12, 36]]);
-    stageStreetLife(game, [[345, 53.5, -Math.PI / 2], [360, 62.5, -Math.PI / 2]], [[340, 50, 0], [350, 66, Math.PI]]);
+    stageStreetLife(game, [[343.5, 30, 0], [352.5, 60, Math.PI]], [[340, 15, 0], [340, 50, Math.PI]]);
   } else {
     // chase (cover, and the default): downtown police chase, wanted 3, cop ramming.
     stageCar(game, 0, 60, 0, 38);

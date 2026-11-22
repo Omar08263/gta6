@@ -65,6 +65,16 @@ export function createWorld(seedRandom) {
   const water = new THREE.Mesh(new THREE.PlaneGeometry(CITY_SIZE + 400, 300), waterMat);
   water.rotation.x = -Math.PI / 2; water.position.set(0, -0.4, HALF + 240); group.add(water);
 
+  // Marina water (east edge, resubmit — mandatory, not conditional): the marina
+  // boats and docks stood on dry ground, because the only water was 300 units
+  // south of them and the ground plane (y -0.05) would hide any water below it.
+  // So this strip rides just above the ground (y 0.02), east of the marina road
+  // (x 356..568, clear of the road at x <= 355 and of every building at x <= 339),
+  // z -210..210, putting real water under all ten boats and all four docks.
+  const marinaWaterMat = new THREE.MeshLambertMaterial({ color: 0x2e7fb8, transparent: true, opacity: 0.95 });
+  const marinaWater = new THREE.Mesh(new THREE.PlaneGeometry(212, 420), marinaWaterMat);
+  marinaWater.rotation.x = -Math.PI / 2; marinaWater.position.set(462, 0.02, 0); group.add(marinaWater);
+
   // Buildings: one instanced box per tower, tinted per instance, window texture shared.
   const spots = [];
   for (let i = 0; i < CITY_BLOCKS; i += 1) {
@@ -140,6 +150,7 @@ export function createWorld(seedRandom) {
     cabin.position.set(-0.5, 2.2, 0); boat.add(cabin);
     boat.position.set(HALF + 14 + random.range(0, 30), 0, -160 + b * 34 + random.range(-6, 6));
     boat.rotation.y = random.range(-0.15, 0.15);
+    boat.scale.setScalar(1.3); // larger hulls read as boats, not boxes, at shot distance
     group.add(boat);
   }
   // Spray shop (repaint clears wanted) and hospital (respawn point), as glowing sign boxes.
