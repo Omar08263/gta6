@@ -9,7 +9,8 @@
 // put your 3 or 4 PNG or JPEG screenshots in screenshots/ (the first by name is the cover) and run it.
 //
 // Sunset Streets — Solmar Bay: the open-world game built in this repo's place (three.js city,
-// driving, wanted/police, five-job story, HUD with minimap, synthesized sound, saves).
+// driving, wanted/police, eight-job story, district standing, radio, garage shop, crew,
+// Air One helicopter, roadblocks, HUD with minimap, synthesized sound, saves).
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:

@@ -5,6 +5,8 @@ export const ACTION_ENTER = 4;
 export const ACTION_MELEE = 8;
 export const ACTION_MISSION = 16;
 export const ACTION_RESTART = 32;
+export const ACTION_RADIO = 64;
+export const ACTION_GARAGE = 128;
 
 export function createInput(canvas) {
   const keys = new Set();
@@ -24,6 +26,8 @@ export function createInput(canvas) {
     if (e.code === 'KeyQ') actions |= ACTION_MELEE;
     if (e.code === 'KeyM') actions |= ACTION_MISSION;
     if (e.code === 'KeyR') actions |= ACTION_RESTART;
+    if (e.code === 'KeyC') actions |= ACTION_RADIO;
+    if (e.code === 'KeyG') actions |= ACTION_GARAGE;
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
   }
   function onKeyUp(e) { keys.delete(e.code); }
