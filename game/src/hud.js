@@ -6,19 +6,32 @@
 // ring (16 px across full-size, ~9.6 px on the contact sheet, above the 6 px
 // gate), police blips are 6 px radius, the player arrow is larger, road lines
 // are brighter (#8a94a8) and thicker, and the landmark squares are 8 px.
+//
+// v3: radio station line under the clock, district standing bar under the
+// district name, CREW badge by the cash, garage upgrade icons under the speed,
+// garage marker (green) and helicopter dot (white) on the minimap, and the
+// five-district standing list on the pause screen.
 import { CITY_SIZE } from './config.js';
+import { GARAGE_UPGRADES } from './garage.js';
+import { DISTRICTS } from './standing.js';
 
 export function createHud() {
   const el = (id) => document.getElementById(id);
   const starsEl = el('stars');
   const cashEl = el('cash');
+  const crewEl = el('crewBadge');
   const healthEl = el('healthBar');
   const clockEl = el('clockTime');
+  const radioEl = el('radioLine');
   const districtEl = el('district');
+  const standingFillEl = el('standingFill');
+  const standingTextEl = el('standingText');
   const objTitle = el('objectiveTitle');
   const objText = el('objectiveText');
   const speedEl = el('speedNum');
   const carEl = el('carName');
+  const garageEl = el('garageIcons');
+  const pauseDistrictsEl = el('pauseDistricts');
   const bannerEl = el('banner');
   const map = el('minimap');
   const mctx = map.getContext('2d');
@@ -47,13 +60,16 @@ export function createHud() {
       const [, z] = toMap(0, line);
       mctx.beginPath(); mctx.moveTo(0, z); mctx.lineTo(S, z); mctx.stroke();
     }
-    // Spray shop + hospital.
+    // Spray shop + hospital + garage.
     mctx.fillStyle = '#3ec8ff';
     const [sx, sy] = toMap(state.world.sprayShop.x, state.world.sprayShop.z);
     mctx.fillRect(sx - 4, sy - 4, 8, 8);
     mctx.fillStyle = '#ff5a5a';
     const [hx, hy] = toMap(state.world.hospital.x, state.world.hospital.z);
     mctx.fillRect(hx - 4, hy - 4, 8, 8);
+    mctx.fillStyle = '#2eff7a';
+    const [gx, gy] = toMap(state.world.garage.x, state.world.garage.z);
+    mctx.fillRect(gx - 4, gy - 4, 8, 8);
     // Mission beacon blip (pulsing orange, white ring so it reads on the sheet).
     if (state.missions.state === 'active') {
       const s = state.missions.spot(state.missions.current);
@@ -69,6 +85,21 @@ export function createHud() {
     for (const cop of state.police.cops) {
       const [cx, cy] = toMap(cop.pos.x, cop.pos.z);
       mctx.beginPath(); mctx.arc(cx, cy, 6, 0, Math.PI * 2); mctx.fill();
+    }
+    // Roadblock blips (white squares) and the Air One dot (white, ringed).
+    if (state.police.roadblock && state.police.roadblock.length > 0) {
+      mctx.fillStyle = '#ffffff';
+      for (const rb of state.police.roadblock) {
+        const [rx, ry] = toMap(rb.pos.x, rb.pos.z);
+        mctx.fillRect(rx - 4, ry - 4, 8, 8);
+      }
+    }
+    if (state.police.heli && state.police.heli.visible) {
+      const [hx2, hy2] = toMap(state.police.heli.position.x, state.police.heli.position.z);
+      mctx.fillStyle = '#ffffff';
+      mctx.beginPath(); mctx.arc(hx2, hy2, 6, 0, Math.PI * 2); mctx.fill();
+      mctx.strokeStyle = '#1a2a44'; mctx.lineWidth = 2;
+      mctx.beginPath(); mctx.arc(hx2, hy2, 6, 0, Math.PI * 2); mctx.stroke();
     }
     // Player arrow.
     const [px, py] = toMap(state.player.pos.x, state.player.pos.z);
@@ -92,11 +123,29 @@ export function createHud() {
     for (let i = 0; i < 5; i += 1) stars += i < state.police.wanted ? '★' : '<span class="off">★</span>';
     starsEl.innerHTML = stars;
     cashEl.textContent = `$${state.cash.value.toLocaleString('en-US')}`;
+    if (crewEl) crewEl.textContent = state.crew ? 'CREW: Diz' : '';
     healthEl.style.width = `${Math.max(0, state.player.health)}%`;
     const hour = (17 + Math.floor(state.time / 3600)) % 24;
     const min = Math.floor(state.time / 60) % 60;
     clockEl.textContent = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
-    districtEl.textContent = state.world.districtAt(state.player.pos.x, state.player.pos.z);
+    if (radioEl && state.audio) radioEl.textContent = `♪ ${state.audio.stationName}`;
+    const districtName = state.world.districtAt(state.player.pos.x, state.player.pos.z);
+    districtEl.textContent = districtName;
+    if (state.standing) {
+      const key = state.standing.currentDistrict;
+      const val = state.standing.get(key);
+      standingTextEl.textContent = `${key} respect ${val}`;
+      standingFillEl.style.width = `${val}%`;
+    }
+    if (garageEl && state.garage) {
+      garageEl.innerHTML = GARAGE_UPGRADES.map((u) => {
+        const owned = state.garage.owned[u.id];
+        return `<span class="${owned ? 'owned' : 'locked'}">${u.short}</span>`;
+      }).join(' ');
+    }
+    if (pauseDistrictsEl && state.standing) {
+      pauseDistrictsEl.innerHTML = DISTRICTS.map((d) => `<div>${d}: ${state.standing.get(d)}</div>`).join('');
+    }
     const obj = state.missions.objectiveText();
     objTitle.textContent = obj.title;
     objText.textContent = obj.text;

@@ -17,6 +17,11 @@
 // - Every moved shot carries its stageStreetLife coordinates with it, so traffic and
 //   pedestrians stay in frame; the cops are already anchored relative to the player.
 // - Step 5 of the plan (facade/shadow variety) was dropped outright as first-to-drop.
+//
+// v3: the cover chase runs at 4 stars with Air One overhead and a roadblock ahead;
+// drive shows the Sunset FM radio line; mission stages Job 6 (Bay Taxi) with Diz
+// riding along and a garage upgrade fitted; heist stages Job 8 (Smuggler's Run) in
+// the Marina with the crew bonus banner.
 import { STEP } from './config.js';
 import { placeCarAt } from './driving.js';
 import { enterCar } from './player.js';
@@ -81,38 +86,54 @@ export function stageShot(name, game) {
   if (name === 'drive') {
     // Beachfront cruise: east along the southernmost road (z = 348), water and
     // sand on the right, towers on the left. Traffic ahead in both lanes,
-    // pedestrians on the north sidewalk and one on the sand.
+    // pedestrians on the north sidewalk and one on the sand. Radio: Sunset FM.
     stageCar(game, -120, 348, Math.PI / 2, 26);
     game.missions.start(1, game.traffic);
     game.police.setWanted(0);
     game.player.health = 100;
+    game.audio.setStation(0);
+    game.standing.set('Beachfront', 45);
     stageStreetLife(game, [[-70, 343.5, Math.PI / 2], [-35, 352.5, -Math.PI / 2]], [[-90, 340, 0], [-55, 357, Math.PI], [-20, 340, 0]]);
   } else if (name === 'mission') {
-    // Job 1 from inside the car: Rook sits in the Comet at (0, 90) facing north,
-    // the orange beacon at (0, 58) ahead in frame — the "Drive the package"
-    // objective now matches a driver, not a pedestrian standing still.
-    stageCar(game, 0, 90, Math.PI, 0);
-    game.missions.start(0, game.traffic);
+    // Job 6 — Bay Taxi: Rook and Diz in the Comet at (-174, 320) facing north,
+    // the fare pickup beacon at (-174, 290) ahead in frame. A tuned engine is
+    // already fitted, so the ENG icon reads lit under the speed.
+    game.missions.setCompleted(5);
+    game.missions.setCurrent(5);
+    stageCar(game, -174, 320, Math.PI, 0);
+    game.crew.board(game.player.inCar);
+    game.garage.owned.engine = true;
+    game.missions.start(5, game.traffic);
     game.police.setWanted(0);
-    game.cash.value = 400;
-    stageStreetLife(game, [[-4.5, 40, Math.PI], [-4.5, 20, Math.PI]], [[8, 62, 0], [-8, 50, Math.PI], [8, 40, 0]]);
+    game.cash.value = 1250;
+    game.standing.set('Beachfront', 45);
+    stageStreetLife(game, [[-178.5, 300, Math.PI], [-169.5, 275, 0]], [[-166, 310, 0], [-182, 295, Math.PI], [-166, 285, 0]]);
   } else if (name === 'heist') {
-    // Marina getaway, on the marina road itself: car at (348, -20) heading south,
-    // Job 5 beacon at (340, 58) ahead, docks at z = 20 and 100 and boats at
-    // z = 44..146 ahead on the left (east), all over the marina water strip.
+    // Job 8 — Smuggler's Run, on the marina road itself: car at (348, -20)
+    // heading south, the Job 8 beacon at (348, 116) ahead, docks and boats on
+    // the eastern water strip. Diz rides along, the crew bonus is bannered,
+    // and Air One circles overhead at 4 stars.
+    game.missions.setCompleted(7);
+    game.missions.setCurrent(7);
     stageCar(game, 348, -20, 0, 34);
-    game.missions.start(4, game.traffic);
+    game.crew.board(game.player.inCar);
+    game.garage.owned.engine = true;
+    game.garage.owned.armor = true;
+    game.missions.start(7, game.traffic);
     game.cash.value = 6400;
     game.player.health = 74;
+    game.standing.set('Marina', 65);
     stageCops(game, 4, [[-6, 8, 40], [6, 10, 38], [-5, -12, 36]]);
     stageStreetLife(game, [[343.5, 30, 0], [352.5, 60, Math.PI]], [[340, 15, 0], [340, 50, Math.PI]]);
   } else {
-    // chase (cover, and the default): downtown police chase, wanted 3, cop ramming.
+    // chase (cover, and the default): downtown police chase, wanted 4, cop ramming,
+    // Air One overhead and a roadblock across the road ahead.
     stageCar(game, 0, 60, 0, 38);
     game.missions.start(3, game.traffic);
     game.cash.value = 4820;
     game.player.health = 82;
-    stageCops(game, 3, [[-5, 2, 42], [5, -6, 40]]);
+    game.standing.set('Downtown', 35);
+    stageCops(game, 4, [[-5, 2, 42], [5, -6, 40], [-6, -10, 38]]);
     stageStreetLife(game, [[-4.5, 120, Math.PI], [-4.5, 140, Math.PI]], [[8, 115, 0], [-8, 128, Math.PI]]);
   }
 
@@ -125,7 +146,7 @@ export function stageShot(name, game) {
   // The player car rolled forward while the frozen cops stayed put: re-pose the cops
   // tight beside the car so the chase reads in the frame (cops behind the car sit
   // behind the chase camera and would be invisible).
-  const copOffsets = name === 'heist' ? [[-6, 8, 40], [6, 10, 38], [-5, -12, 36]] : [[-5, 2, 42], [5, -6, 40]];
+  const copOffsets = name === 'heist' ? [[-6, 8, 40], [6, 10, 38], [-5, -12, 36]] : [[-5, 2, 42], [5, -6, 40], [-6, -10, 38]];
   if (game.police.cops.length > 0) {
     const anchor = game.player.inCar ? game.player.inCar.pos : game.player.pos;
     game.police.cops.forEach((cop, i) => {
@@ -140,6 +161,20 @@ export function stageShot(name, game) {
   const heading = game.player.inCar ? game.player.inCar.heading : game.player.heading;
   const speed = game.player.inCar ? Math.abs(game.player.inCar.speed) : 0;
   game.renderer.updateCamera(target, heading, !!game.player.inCar, speed, { dx: 0, dy: 0 }, 1);
+  // v3 set dressing, placed after the settle steps so nothing drifts them.
+  if (name === 'chase') {
+    const fx = Math.sin(heading), fz = Math.cos(heading);
+    // Helicopter low and far ahead (40 units, y 14) so its body sits inside the
+    // chase camera's frame; the roadblock closer (22 ahead) so it reads below
+    // the ROADBLOCK AHEAD banner instead of hiding behind it.
+    game.police.showHeliAt(target.x + fx * 40, target.z + fz * 40, 14);
+    game.police.placeRoadblockAt(target.x + fx * 22, target.z + fz * 22, heading);
+    game.hud.showBanner('ROADBLOCK AHEAD', 'Air One is overhead — 4 stars', 60000);
+  } else if (name === 'heist') {
+    const fx = Math.sin(heading), fz = Math.cos(heading);
+    game.police.showHeliAt(target.x + fx * 40, target.z + fz * 40, 14);
+    game.hud.showBanner('CREW BONUS', 'Diz rides along — +15% on the $3,500 payout', 60000);
+  }
   game.hud.update(game, 0);
   return { screen: 'play' };
 }

@@ -1,4 +1,5 @@
-// Save to localStorage: cash, completed jobs, health and position. Auto-saves on mission end.
+// Save to localStorage: cash, completed jobs, health and position, plus district
+// standing, garage upgrades and the radio station. Auto-saves on mission end.
 import { SAVE_KEY } from './config.js';
 
 export function loadSave() {
@@ -20,6 +21,9 @@ export function saveGame(state) {
       health: Math.round(state.player.health),
       x: Math.round(state.player.pos.x),
       z: Math.round(state.player.pos.z),
+      standing: state.standing ? state.standing.toSave() : undefined,
+      garage: state.garage ? state.garage.toSave() : undefined,
+      station: state.audio ? state.audio.stationIndex : 0,
     }));
     return true;
   } catch { return false; }

@@ -163,6 +163,9 @@ export function createWorld(seedRandom) {
   }
   const sprayShop = landmark(-284, -290, 0x3ec8ff, 'Spray Shop');
   const hospital = landmark(284, 290, 0xff5a5a, 'Solmar General');
+  // Rook's Garage (upgrade shop): south-west corner, the west-end corner
+  // opposite the hospital side. The garage module builds its own sign box.
+  const garage = { x: -284, z: 290, label: "Rook's Garage" };
 
   const playerSpawn = { x: -290, z: 0 };
 
@@ -202,7 +205,7 @@ export function createWorld(seedRandom) {
   }
 
   return {
-    group, buildings, roadLines, sprayShop, hospital, playerSpawn, water,
+    group, buildings, roadLines, sprayShop, hospital, garage, playerSpawn, water,
     nearestRoadCoord, isOnRoad, randomRoadPoint, randomSidewalkPoint, collides, districtAt,
     update(dt, t) { water.position.y = -0.4 + Math.sin(t * 0.7) * 0.12; },
   };

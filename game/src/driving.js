@@ -54,10 +54,13 @@ function collideWorld(car, world) {
 }
 
 // Arcade step: accelerate / brake / reverse, steering that bites with speed, handbrake drift.
-export function driveCar(car, input, world, dt, others) {
+// `upgrades` is the garage shop state ({ topSpeedMult, steerMult }) — only the
+// player's car ever runs through here, so the shop affects exactly that car.
+export function driveCar(car, input, world, dt, others, upgrades) {
   const axis = input.axis();
   const forward = axis.y;
   const handbrake = input.handbrake();
+  const topSpeed = car.topSpeed * (upgrades ? upgrades.topSpeedMult : 1);
   if (forward > 0) car.speed += CAR_ACCEL * dt * (car.speed < 0 ? 2.2 : 1);
   else if (forward < 0) {
     if (car.speed > 0.5) car.speed -= CAR_BRAKE * dt;
@@ -65,8 +68,8 @@ export function driveCar(car, input, world, dt, others) {
   } else {
     car.speed -= Math.sign(car.speed) * Math.min(Math.abs(car.speed), (handbrake ? 30 : 8) * dt);
   }
-  car.speed = Math.max(-CAR_REVERSE_SPEED, Math.min(car.topSpeed, car.speed));
-  const steerTarget = -axis.x * CAR_STEER * (handbrake ? 1.5 : 1);
+  car.speed = Math.max(-CAR_REVERSE_SPEED, Math.min(topSpeed, car.speed));
+  const steerTarget = -axis.x * CAR_STEER * (upgrades ? upgrades.steerMult : 1) * (handbrake ? 1.5 : 1);
   const grip = handbrake ? 0.35 : 1;
   car.steer += (steerTarget - car.steer) * Math.min(1, dt * 8);
   car.heading += car.steer * dt * Math.min(1, Math.abs(car.speed) / 12) * Math.sign(car.speed || 1) * grip;

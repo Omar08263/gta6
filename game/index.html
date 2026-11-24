@@ -14,10 +14,15 @@
   #stars { font-size: 26px; letter-spacing: 2px; color: #ffd23e; }
   #stars .off { color: rgba(255,255,255,.28); }
   #cash { font-size: 22px; font-weight: bold; color: #7dff9a; margin-top: 2px; }
+  #crewBadge { font-size: 14px; font-weight: bold; color: #18c8d8; margin-top: 2px; letter-spacing: 1px; }
   #healthWrap { width: 190px; height: 12px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.5); border-radius: 6px; margin-top: 6px; overflow: hidden; }
   #healthBar { height: 100%; width: 100%; background: linear-gradient(90deg,#ff5a3c,#ffb03c); }
   #clock { top: 12px; right: 16px; font-size: 20px; font-weight: bold; text-align: right; }
+  #radioLine { font-size: 14px; color: #7dffd8; font-weight: normal; }
   #district { font-size: 13px; color: #ffd9a0; }
+  #standingWrap { width: 150px; height: 6px; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.4); border-radius: 3px; margin-top: 3px; margin-left: auto; overflow: hidden; }
+  #standingFill { height: 100%; width: 10%; background: #2eff7a; }
+  #standingText { font-size: 12px; color: #b8ffb8; font-weight: normal; }
   #objective { top: 12px; left: 50%; transform: translateX(-50%); text-align: center; max-width: 560px; }
   #objectiveTitle { font-size: 17px; font-weight: bold; color: #ffe9b0; }
   #objectiveText { font-size: 15px; margin-top: 2px; }
@@ -27,6 +32,10 @@
   #speedNum { font-size: 44px; font-weight: bold; line-height: 1; }
   #speedUnit { font-size: 14px; color: #ffd9a0; }
   #carName { font-size: 14px; color: #ffe9b0; margin-top: 2px; }
+  #garageIcons { font-size: 13px; font-weight: bold; margin-top: 3px; letter-spacing: 2px; }
+  #garageIcons .owned { color: #2eff7a; }
+  #garageIcons .locked { color: rgba(255,255,255,.3); }
+  #pauseDistricts { font-size: 15px; line-height: 1.6; color: #b8ffb8; margin-top: 8px; }
   #hint { bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 13px; color: rgba(255,255,255,.85); background: rgba(0,0,0,.4); padding: 4px 10px; border-radius: 10px; }
   #banner { top: 34%; left: 50%; transform: translate(-50%,-50%); text-align: center; font-size: 40px; font-weight: bold; color: #ffe9b0; display: none; }
   #banner small { display: block; font-size: 18px; color: #fff; margin-top: 6px; }
@@ -46,25 +55,27 @@
   <div class="panel" id="topLeft">
     <div id="stars"></div>
     <div id="cash">$0</div>
+    <div id="crewBadge"></div>
     <div id="healthWrap"><div id="healthBar"></div></div>
   </div>
-  <div class="panel" id="clock"><div id="clockTime">18:24</div><div id="district">Downtown Solmar Bay</div></div>
+  <div class="panel" id="clock"><div id="clockTime">18:24</div><div id="radioLine">♪ Sunset FM</div><div id="district">Downtown Solmar Bay</div><div id="standingWrap"><div id="standingFill"></div></div><div id="standingText">Downtown respect 10</div></div>
   <div class="panel" id="objective"><div id="objectiveTitle"></div><div id="objectiveText"></div></div>
   <div class="panel" id="minimapWrap"><canvas id="minimap" width="180" height="180"></canvas></div>
-  <div class="panel" id="speed"><div id="speedNum">0</div><div id="speedUnit">mph</div><div id="carName"></div></div>
-  <div class="panel" id="hint">WASD move &nbsp;·&nbsp; Mouse drag camera &nbsp;·&nbsp; E enter car &nbsp;·&nbsp; M next job &nbsp;·&nbsp; R restart job &nbsp;·&nbsp; Space handbrake &nbsp;·&nbsp; Q punch &nbsp;·&nbsp; P pause</div>
+  <div class="panel" id="speed"><div id="speedNum">0</div><div id="speedUnit">mph</div><div id="carName"></div><div id="garageIcons"></div></div>
+  <div class="panel" id="hint">WASD move &nbsp;·&nbsp; Mouse drag camera &nbsp;·&nbsp; E enter car &nbsp;·&nbsp; M next job &nbsp;·&nbsp; R restart job &nbsp;·&nbsp; Space handbrake &nbsp;·&nbsp; Q punch &nbsp;·&nbsp; C radio · G garage (near Rook's Garage) &nbsp;·&nbsp; P pause</div>
   <div class="panel" id="banner"></div>
 </div>
 <div class="overlay" id="title">
   <h1>SUNSET STREETS</h1>
   <h2>Solmar Bay &nbsp;·&nbsp; a newcomer driver climbs from courier runs to the marina heist</h2>
-  <p>You are Rae &ldquo;Rook&rdquo; Marlow. Steal cars, outrun the Solmar Bay patrol, run five jobs for the crew, and pull off the marina heist. Watch the wanted stars — the patrol never forgets a stolen car for long.</p>
+  <p>You are Rae &ldquo;Rook&rdquo; Marlow. Steal cars, outrun the Solmar Bay patrol, run eight jobs for the crew, and pull off the marina heist. Build respect district by district, tune the Comet at Rook's Garage, ride with Diz, and watch the wanted stars — the patrol never forgets a stolen car for long.</p>
   <button id="playBtn">Start driving</button>
   <p id="continueLine" class="hidden">Saved progress found — your cash and jobs carry over.</p>
 </div>
 <div class="overlay hidden" id="pause">
   <h1>PAUSED</h1>
   <p>Solmar Bay waits for no one. Press P or click Resume to keep driving.</p>
+  <div id="pauseDistricts"></div>
   <button id="resumeBtn">Resume</button>
 </div>
 <div class="overlay hidden" id="over">
